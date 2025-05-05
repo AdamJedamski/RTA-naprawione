@@ -1,9 +1,6 @@
-FROM python:3.12-slim
+FROM python:3.10-slim
 
 WORKDIR /app
-
-# Install setuptools first
-RUN pip install --no-cache-dir setuptools wheel
 
 # Install dependencies
 COPY requirements.txt .
