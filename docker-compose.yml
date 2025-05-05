@@ -1,7 +1,7 @@
 services:
   # Zookeeper - required for Kafka
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.0
+    image: confluentinc/cp-zookeeper:6.2.1
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -9,9 +9,6 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
-      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_jaas.conf -Dzookeeper.4lw.commands.whitelist=* -Djdk.internal.platform.CgroupMetrics=none"
-      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
     networks:
       - qrc-network
     volumes:
@@ -20,7 +17,7 @@ services:
 
   # Kafka - message broker
   kafka:
-    image: confluentinc/cp-kafka:7.3.0
+    image: confluentinc/cp-kafka:6.2.1
     hostname: kafka
     container_name: kafka
     depends_on:
@@ -38,9 +35,6 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
-      KAFKA_OPTS: "-Djdk.internal.platform.CgroupMetrics=none"
-      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
     networks:
       - qrc-network
     volumes:
@@ -48,21 +42,18 @@ services:
 
   # Kafka initialization - creates required topics
   kafka-init:
-    image: confluentinc/cp-kafka:7.3.0
+    image: confluentinc/cp-kafka:6.2.1
     container_name: kafka-init
     depends_on:
       - kafka
     command: >
       bash -c "
         echo 'Waiting for Kafka to be ready...' &&
-        cub kafka-ready -b kafka:9092 1 180 &&
+        sleep 30 &&
         echo 'Creating Kafka topics...' &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic iot-data &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic qrc-predictions &&
         echo 'Kafka topics created.'"
-    environment:
-      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
-      KAFKA_OPTS: "-Djdk.internal.platform.CgroupMetrics=none"
     networks:
       - qrc-network
 
