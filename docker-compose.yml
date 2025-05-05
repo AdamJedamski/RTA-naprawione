@@ -11,6 +11,12 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - qrc-network
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Kafka - message broker
   kafka:
@@ -18,7 +24,8 @@ services:
     hostname: kafka
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -34,17 +41,22 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     networks:
       - qrc-network
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka:9092 --list || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Kafka initialization - creates required topics
   kafka-init:
     image: confluentinc/cp-kafka:7.3.0
     container_name: kafka-init
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     command: >
       bash -c "
-        echo 'Waiting for Kafka to be ready...' &&
-        cub kafka-ready -b kafka:9092 1 30 &&
         echo 'Creating Kafka topics...' &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic iot-data &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic qrc-predictions &&
@@ -59,7 +71,8 @@ services:
       dockerfile: Dockerfile
     container_name: data-streamer
     depends_on:
-      - kafka-init
+      kafka-init:
+        condition: service_completed_successfully
     volumes:
       - ./data:/app/data
     command: >
@@ -79,7 +92,8 @@ services:
       dockerfile: Dockerfile
     container_name: qrc-model
     depends_on:
-      - kafka-init
+      kafka-init:
+        condition: service_completed_successfully
     command: >
       python main.py 
         --bootstrap-servers kafka:9092 
@@ -100,7 +114,8 @@ services:
       dockerfile: Dockerfile
     container_name: visualization
     depends_on:
-      - kafka-init
+      kafka-init:
+        condition: service_completed_successfully
     ports:
       - "8050:8050"
     command: >
