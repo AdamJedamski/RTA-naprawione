@@ -1,28 +1,26 @@
-# RTA-Project: IoT Signal Datastream Anomalies Detection
+# RTA-Project: Real-Time Anomaly Detection in IoT Datastreams
 
-Real-time anomaly detection in IoT signal datastreams using Quantum Reservoir Computing (QRC) with Kafka streaming.
+This project implements a real-time anomaly detection system for IoT signal datastreams using Quantum Reservoir Computing (QRC) with Apache Kafka for streaming data processing.
 
 ## Project Overview
 
-This project implements a real-time anomaly detection system for IoT data streams, specifically focused on CPU utilization metrics. The system uses Quantum Reservoir Computing (QRC) for anomaly detection and Apache Kafka for data streaming.
+The system detects anomalies in CPU utilization metrics by using a Quantum Reservoir Computing model. The architecture employs Apache Kafka for streaming data between components, creating a real-time processing pipeline.
 
 ### Architecture
 
-The system consists of the following components:
+The system consists of three main components:
 
-1. **Data Streaming Component**: Reads data from a source (CSV file or synthetic generator) and publishes it to a Kafka topic.
+1. **Data Streaming Component**: Reads CPU utilization data from a CSV file and publishes it to a Kafka topic.
 2. **QRC Model Component**: Consumes data from Kafka, trains a QRC model, and performs real-time anomaly detection.
-3. **Visualization Component**: Displays real-time data and anomaly detection results.
-4. **Kafka Infrastructure**: Serves as the central message bus for communication between components.
+3. **Visualization Component**: Displays real-time data and anomaly detection results in an interactive dashboard.
 
 ### Technologies Used
 
 - **Python**: Primary programming language
-- **Apache Kafka**: Message broker for data streaming
+- **Apache Kafka & Zookeeper**: Message broker for data streaming
 - **PennyLane**: Quantum machine learning framework
-- **Dash/Plotly**: Interactive visualization
-- **Docker**: Containerization
-- **Docker Compose**: Container orchestration
+- **Dash & Plotly**: Interactive visualization
+- **Docker & Docker Compose**: Containerization and orchestration
 
 ## Project Structure
 
@@ -37,11 +35,16 @@ rta-project/
 ├── qrc_model/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   └── model.py
+│   ├── config.py
+│   ├── model.py
+│   ├── kafka_handler.py
+│   └── main.py
 ├── visualization/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   └── dashboard.py
+│   ├── data_consumer.py
+│   ├── dashboard.py
+│   └── main.py
 ├── docker-compose.yml
 └── README.md
 ```
@@ -57,8 +60,8 @@ rta-project/
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/rta-project.git
-   cd rta-project
+   git clone https://github.com/yourusername/RTA-Project.git
+   cd RTA-Project
    ```
 
 2. Download the CPU utilization dataset:
@@ -67,88 +70,99 @@ rta-project/
    curl -o data/cpu_utilization_asg_misconfiguration.csv https://raw.githubusercontent.com/numenta/NAB/master/data/realKnownCause/cpu_utilization_asg_misconfiguration.csv
    ```
 
-3. Build and start the containers:
+3. Start the services in correct order to ensure proper initialization:
    ```
-   docker-compose up -d
+   # Start Zookeeper first
+   docker-compose up -d zookeeper
+   
+   # Wait for Zookeeper to initialize (10-15 seconds)
+   sleep 15
+   
+   # Start Kafka
+   docker-compose up -d kafka
+   
+   # Wait for Kafka to initialize (20-30 seconds)
+   sleep 30
+   
+   # Initialize Kafka topics
+   docker-compose up -d kafka-init
+   
+   # Check if topics were created successfully
+   docker-compose logs kafka-init
+   
+   # Start remaining services
+   docker-compose up -d data-streamer qrc-model visualization
    ```
 
 4. Access the dashboard:
-   Open your browser and navigate to `http://localhost:8050`
+   - Open your browser and navigate to `http://localhost:8050`
 
-### Running Individual Components (for Development)
+5. Monitor the system:
+   ```
+   docker-compose logs -f
+   ```
 
-#### Data Streamer
-```
-cd data_streamer
-pip install -r requirements.txt
-python streamer.py --bootstrap-servers localhost:29092 --topic iot-data --data-source ../data/cpu_utilization_asg_misconfiguration.csv --delay 0.5
-```
+### Troubleshooting
 
-#### QRC Model
-```
-cd qrc_model
-pip install -r requirements.txt
-python model.py --bootstrap-servers localhost:29092 --input-topic iot-data --output-topic qrc-predictions --window-size 10 --n-qubits 8 --n-layers 3 --train-size 1000
-```
+If you encounter connection issues between services, try the following:
 
-#### Visualization
-```
-cd visualization
-pip install -r requirements.txt
-python dashboard.py --bootstrap-servers localhost:29092 --raw-topic iot-data --predictions-topic qrc-predictions --window-size 200 --update-interval 1000
-```
+1. Ensure Kafka is properly initialized before starting other services:
+   ```
+   docker-compose logs kafka
+   ```
+
+2. If DNS resolution issues persist, you can use the Kafka container's IP directly:
+   ```
+   # Find Kafka container IP
+   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kafka
+   
+   # Update the bootstrap-servers parameter in docker-compose.yml with this IP
+   ```
+
+3. Restart services in correct order if needed:
+   ```
+   docker-compose down
+   # Then follow the startup sequence described above
+   ```
 
 ## How It Works
 
 ### Data Streaming
 
-The data streamer reads CPU utilization data from a CSV file and publishes it to a Kafka topic (`iot-data`). It simulates real-time streaming by adding a delay between data points.
+The data streamer reads CPU utilization data from a CSV file and publishes it to a Kafka topic (`iot-data`), simulating real-time streaming by adding a configured delay between data points.
 
 ### Quantum Reservoir Computing Model
 
-The QRC model consumes data from the Kafka topic, trains on historical data, and then performs real-time anomaly detection. The model uses a quantum circuit implemented with PennyLane to create a reservoir computing system. Anomalies are detected by comparing prediction errors with a threshold.
+The QRC model consumes data from Kafka, trains on historical data, and performs real-time anomaly detection. Using PennyLane for quantum circuit implementation, it creates a reservoir computing system that detects anomalies by comparing prediction errors with a dynamically updated threshold.
 
-The model's predictions and anomaly detection results are published to another Kafka topic (`qrc-predictions`).
+The model's predictions and anomaly detections are published to a Kafka topic (`qrc-predictions`) for visualization.
 
-### Visualization
+### Visualization Dashboard
 
-The visualization component consumes both raw data and model predictions from Kafka topics and displays them in a real-time dashboard. The dashboard includes:
+The visualization component consumes data from both Kafka topics and displays a real-time dashboard featuring:
 
-- Time series plot of actual vs. predicted values
-- Error plot with threshold
+- Time series plots of actual vs. predicted values
+- Error plot with threshold visualization
 - Anomaly detection signal
-- Statistics and current status
+- Current statistics and status
 
 ## Customization
 
-### Using Different Data Sources
-
-You can use different data sources by:
-
-1. Modifying the data streamer to read from different files or APIs
-2. Adjusting the data schema if necessary
-3. Updating the QRC model parameters to better fit the new data
-
 ### Adjusting QRC Model Parameters
 
-You can adjust the QRC model parameters by modifying the arguments passed to the model in the `docker-compose.yml` file:
+Customize model behavior by changing parameters in `docker-compose.yml`:
 
-- `--n-qubits`: Number of qubits in the quantum circuit
-- `--n-layers`: Number of layers in the quantum circuit
-- `--window-size`: Size of the sliding window for input sequences
-- `--train-size`: Number of samples to use for training
+- `--n-qubits`: Number of qubits in the quantum circuit (default: 8)
+- `--n-layers`: Number of layers in the quantum circuit (default: 3)
+- `--window-size`: Size of the sliding window for input sequences (default: 10)
+- `--train-size`: Number of samples to use for training (default: 1000)
 
-### Scaling the System
+### Adjusting Visualization Settings
 
-To scale the system for higher throughput:
+Customize visualization with parameters in `docker-compose.yml`:
 
-1. Increase Kafka partitions in the `kafka-init` service
-2. Add more instances of the QRC model by scaling the container
-3. Consider using a Kafka Streams application for parallelized processing
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- `--window-size`: Number of data points to display (default: 200)
+- `--update-interval`: Dashboard refresh rate in milliseconds (default: 1000)
 
 ## License
 
@@ -157,4 +171,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Dataset from the Numenta Anomaly Benchmark (NAB)
-- Inspired by research in Quantum Reservoir Computing for time series processing
+- Inspired by research in Quantum Reservoir Computing for time series analysis
