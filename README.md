@@ -164,11 +164,6 @@ Customize visualization with parameters in `docker-compose.yml`:
 - `--window-size`: Number of data points to display (default: 200)
 - `--update-interval`: Dashboard refresh rate in milliseconds (default: 1000)
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## Acknowledgments
 
 - Dataset from the Numenta Anomaly Benchmark (NAB)
-- Inspired by research in Quantum Reservoir Computing for time series analysis
