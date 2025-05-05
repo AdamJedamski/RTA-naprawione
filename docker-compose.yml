@@ -9,14 +9,14 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/zookeeper_jaas.conf -Dzookeeper.4lw.commands.whitelist=* -Djdk.internal.platform.CgroupMetrics=none"
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
     networks:
       - qrc-network
-    healthcheck:
-      test: echo srvr | nc zookeeper 2181 || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
 
   # Kafka - message broker
   kafka:
@@ -24,8 +24,7 @@ services:
     hostname: kafka
     container_name: kafka
     depends_on:
-      zookeeper:
-        condition: service_healthy
+      - zookeeper
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -39,28 +38,31 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
+      KAFKA_OPTS: "-Djdk.internal.platform.CgroupMetrics=none"
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
     networks:
       - qrc-network
-    healthcheck:
-      test: kafka-topics --bootstrap-server kafka:9092 --list || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
 
   # Kafka initialization - creates required topics
   kafka-init:
     image: confluentinc/cp-kafka:7.3.0
     container_name: kafka-init
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
     command: >
       bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        cub kafka-ready -b kafka:9092 1 180 &&
         echo 'Creating Kafka topics...' &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic iot-data &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic qrc-predictions &&
         echo 'Kafka topics created.'"
+    environment:
+      # Dodane opcje JVM, aby uniknąć błędu NullPointerException
+      KAFKA_OPTS: "-Djdk.internal.platform.CgroupMetrics=none"
     networks:
       - qrc-network
 
@@ -71,8 +73,7 @@ services:
       dockerfile: Dockerfile
     container_name: data-streamer
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
+      - kafka-init
     volumes:
       - ./data:/app/data
     command: >
@@ -92,8 +93,7 @@ services:
       dockerfile: Dockerfile
     container_name: qrc-model
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
+      - kafka-init
     command: >
       python main.py 
         --bootstrap-servers kafka:9092 
@@ -114,8 +114,7 @@ services:
       dockerfile: Dockerfile
     container_name: visualization
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
+      - kafka-init
     ports:
       - "8050:8050"
     command: >
@@ -128,6 +127,11 @@ services:
     networks:
       - qrc-network
     restart: on-failure
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
 
 networks:
   qrc-network:
