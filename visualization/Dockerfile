@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8050
 
 # Run the application
-CMD ["python", "dashboard.py"]
+CMD ["python", "main.py"]

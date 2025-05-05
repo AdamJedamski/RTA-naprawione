@@ -83,7 +83,7 @@ services:
     depends_on:
       - kafka-init
     command: >
-      python model.py 
+      python main.py 
         --bootstrap-servers kafka:9092 
         --input-topic iot-data 
         --output-topic qrc-predictions 
@@ -106,7 +106,7 @@ services:
     ports:
       - "8050:8050"
     command: >
-      python dashboard.py 
+      python main.py 
         --bootstrap-servers kafka:9092 
         --raw-topic iot-data 
         --predictions-topic qrc-predictions 
