@@ -1,0 +1,119 @@
+services:
+  # Zookeeper - required for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - qrc-network
+
+  # Kafka - message broker
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - qrc-network
+
+  # Kafka initialization - creates required topics
+  kafka-init:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        cub kafka-ready -b kafka:9092 1 30 &&
+        echo 'Creating Kafka topics...' &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic iot-data &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic qrc-predictions &&
+        echo 'Kafka topics created.'"
+    networks:
+      - qrc-network
+
+  # Data Streaming Component
+  data-streamer:
+    build:
+      context: ./data_streamer
+      dockerfile: Dockerfile
+    container_name: data-streamer
+    depends_on:
+      - kafka-init
+    volumes:
+      - ./data:/app/data
+    command: >
+      python streamer.py 
+        --bootstrap-servers kafka:9092 
+        --topic iot-data 
+        --data-source /app/data/cpu_utilization_asg_misconfiguration.csv
+        --delay 0.5
+    networks:
+      - qrc-network
+    restart: on-failure
+
+  # QRC Model Component
+  qrc-model:
+    build:
+      context: ./qrc_model
+      dockerfile: Dockerfile
+    container_name: qrc-model
+    depends_on:
+      - kafka-init
+    command: >
+      python main.py 
+        --bootstrap-servers kafka:9092 
+        --input-topic iot-data 
+        --output-topic qrc-predictions 
+        --window-size 10 
+        --n-qubits 8 
+        --n-layers 3
+        --train-size 1000
+    networks:
+      - qrc-network
+    restart: on-failure
+
+  # Visualization Dashboard
+  visualization:
+    build:
+      context: ./visualization
+      dockerfile: Dockerfile
+    container_name: visualization
+    depends_on:
+      - kafka-init
+    ports:
+      - "8050:8050"
+    command: >
+      python main.py 
+        --bootstrap-servers kafka:9092 
+        --raw-topic iot-data 
+        --predictions-topic qrc-predictions 
+        --window-size 200 
+        --update-interval 1000
+    networks:
+      - qrc-network
+    restart: on-failure
+
+networks:
+  qrc-network:
+    driver: bridge
