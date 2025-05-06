@@ -46,6 +46,7 @@ rta-project/
 │   ├── dashboard.py
 │   └── main.py
 ├── docker-compose.yml
+├── start.sh
 └── README.md
 ```
 
@@ -64,65 +65,32 @@ rta-project/
    cd RTA-Project
    ```
 
-2. Download the CPU utilization dataset:
-   ```
-   mkdir -p data
-   curl -o data/cpu_utilization_asg_misconfiguration.csv https://raw.githubusercontent.com/numenta/NAB/master/data/realKnownCause/cpu_utilization_asg_misconfiguration.csv
-   ```
-
-3. Start the services in correct order to ensure proper initialization:
-   ```
-   # Start Zookeeper first
-   docker-compose up -d zookeeper
-   
-   # Wait for Zookeeper to initialize (10-15 seconds)
-   sleep 15
-   
-   # Start Kafka
-   docker-compose up -d kafka
-   
-   # Wait for Kafka to initialize (20-30 seconds)
-   sleep 30
-   
-   # Initialize Kafka topics
-   docker-compose up -d kafka-init
-   
-   # Check if topics were created successfully
-   docker-compose logs kafka-init
-   
-   # Start remaining services
-   docker-compose up -d data-streamer qrc-model visualization
+2. Use the provided start script to start all services in the correct order:
+   ```bash
+   chmod +x start.sh
+   ./start.sh
    ```
 
-4. Access the dashboard:
+   The script will:
+   - Stop any existing containers
+   - Remove volumes for a clean start
+   - Remove Docker images to force a complete rebuild (resolving dependency issues)
+   - Check if the required data file exists
+   - Build all containers
+   - Start services in the correct order with appropriate delays:
+     1. Zookeeper
+     2. Kafka
+     3. Kafka topic initialization
+     4. Data streamer
+     5. QRC model
+     6. Visualization dashboard
+
+3. Access the dashboard:
    - Open your browser and navigate to `http://localhost:8050`
 
-5. Monitor the system:
+4. Monitor the system:
    ```
    docker-compose logs -f
-   ```
-
-### Troubleshooting
-
-If you encounter connection issues between services, try the following:
-
-1. Ensure Kafka is properly initialized before starting other services:
-   ```
-   docker-compose logs kafka
-   ```
-
-2. If DNS resolution issues persist, you can use the Kafka container's IP directly:
-   ```
-   # Find Kafka container IP
-   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kafka
-   
-   # Update the bootstrap-servers parameter in docker-compose.yml with this IP
-   ```
-
-3. Restart services in correct order if needed:
-   ```
-   docker-compose down
-   # Then follow the startup sequence described above
    ```
 
 ## How It Works
@@ -163,6 +131,12 @@ Customize visualization with parameters in `docker-compose.yml`:
 
 - `--window-size`: Number of data points to display (default: 200)
 - `--update-interval`: Dashboard refresh rate in milliseconds (default: 1000)
+
+### Adjusting Data Streaming Speed
+
+Modify the data streaming speed in `docker-compose.yml`:
+
+- `--delay`: Delay between data points in seconds (default: 0.05)
 
 ## Acknowledgments
 
