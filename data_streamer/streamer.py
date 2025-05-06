@@ -93,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument('--bootstrap-servers', default='localhost:9092', help='Kafka bootstrap servers')
     parser.add_argument('--topic', default='iot-data', help='Kafka topic to publish data')
     parser.add_argument('--data-source', required=True, help='Path to data source file')
-    parser.add_argument('--delay', type=float, default=0.5, help='Delay between records (seconds)')
+    parser.add_argument('--delay', type=float, default=0.05, help='Delay between records (seconds)')
     
     args = parser.parse_args()
     

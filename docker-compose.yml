@@ -72,7 +72,7 @@ services:
         --bootstrap-servers kafka:9092 
         --topic iot-data 
         --data-source /app/data/cpu_utilization_asg_misconfiguration.csv
-        --delay 0.5
+        --delay 0.05
     networks:
       - qrc-network
     restart: on-failure
