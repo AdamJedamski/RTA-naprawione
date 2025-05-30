@@ -21,9 +21,9 @@ DEFAULT_KAFKA_PARAMS = {
 
 # Training parameters
 DEFAULT_TRAINING_PARAMS = {
-    'window_size': 10,          # Size of the sliding window for input sequences
-    'train_size': 1000,         # Number of samples to use for training
-    'n_epochs': 1               # Number of epochs to train
+    'window_size': 100,          # Size of the sliding window for input sequences
+    'train_size': 2000,         # Number of samples to use for training
+    'n_epochs': 20               # Number of epochs to train
 }
 
 # Anomaly detection parameters
@@ -31,5 +31,5 @@ DEFAULT_ANOMALY_PARAMS = {
     'threshold_factor': 3.0,    # Number of standard deviations for threshold
     'dynamic_threshold': True,  # Whether to update threshold dynamically
     'history_size': 100,         # Size of error history for dynamic threshold
-    'value_threshold': 80
+    'value_threshold': 75
 }

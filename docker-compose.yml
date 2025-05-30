@@ -90,10 +90,10 @@ services:
         --bootstrap-servers kafka:9092 
         --input-topic iot-data 
         --output-topic qrc-predictions 
-        --window-size 10 
+        --window-size 100 
         --n-qubits 8 
         --n-layers 3
-        --train-size 1000
+        --train-size 2000
     networks:
       - qrc-network
     restart: on-failure
@@ -113,8 +113,8 @@ services:
         --bootstrap-servers kafka:9092 
         --raw-topic iot-data 
         --predictions-topic qrc-predictions 
-        --window-size 200 
-        --update-interval 1000
+        --window-size 100 
+        --update-interval 100
     networks:
       - qrc-network
     restart: on-failure
