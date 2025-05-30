@@ -30,5 +30,6 @@ DEFAULT_TRAINING_PARAMS = {
 DEFAULT_ANOMALY_PARAMS = {
     'threshold_factor': 3.0,    # Number of standard deviations for threshold
     'dynamic_threshold': True,  # Whether to update threshold dynamically
-    'history_size': 100         # Size of error history for dynamic threshold
+    'history_size': 100,         # Size of error history for dynamic threshold
+    'value_threshold': 80
 }

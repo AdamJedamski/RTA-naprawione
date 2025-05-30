@@ -109,13 +109,17 @@ class KafkaDataConsumer:
                     try:
                         timestamp = datetime.fromisoformat(record['timestamp'])
                         self.timestamps.append(timestamp)
-                        self.actual_values.append(float(record['actual_value']))
+                        # Rzeczywista wartość (jeśli ją wysyłasz)
+                        self.actual_values.append(float(record.get('actual_value', None)))
+                        # Prognoza
                         self.predicted_values.append(float(record['predicted_value']))
-                        self.errors.append(float(record['error']))
+                        # Błąd już nie jest wysyłany → dorzuć None, żeby bufor miał stałą długość
+                        self.errors.append(None)
+                        # Próg i flaga anomalii
                         self.thresholds.append(float(record['threshold']))
                         self.anomalies.append(bool(record['is_anomaly']))
-                        
-                        # Mark that predictions are available
+
+                        # Teraz, gdy mamy faktyczną prognozę, odblokuj rysowanie wykresów
                         self.predictions_available = True
                     except Exception as e:
                         logger.error(f"Error processing prediction data: {e}")

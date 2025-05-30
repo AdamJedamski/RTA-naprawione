@@ -35,7 +35,7 @@ class QuantumReservoirModel:
         self.W_out = None
         
         # For anomaly detection
-        self.error_threshold = None
+        self.value_threshold = DEFAULT_ANOMALY_PARAMS['value_threshold']
         self.error_history = []
         
         # Compile QNode
@@ -149,29 +149,13 @@ class QuantumReservoirModel:
 
         return np.array(predictions)
     
-    def detect_anomalies(self, input_seq, actual_value):
+    def detect_anomalies(self, input_seq):
         """
-        Detect anomalies by comparing prediction error with threshold.
-        
-        Args:
-            input_seq (np.ndarray): Input sequence
-            actual_value (float): Actual observed value
-            
-        Returns:
-            tuple: (prediction, error, is_anomaly)
+        Wczesne ostrzeganie: prognoza > value_threshold → anomalia.
         """
         prediction = self.predict([input_seq])[0]
-        error = abs(prediction - actual_value)
-        self.error_history.append(error)
-        
-        # Dynamic threshold update (if enabled)
-        if DEFAULT_ANOMALY_PARAMS['dynamic_threshold']:
-            if len(self.error_history) > DEFAULT_ANOMALY_PARAMS['history_size']:
-                self.error_history.pop(0)
-                self.error_threshold = np.mean(self.error_history) + DEFAULT_ANOMALY_PARAMS['threshold_factor'] * np.std(self.error_history)
-        
-        is_anomaly = error > self.error_threshold
-        return prediction, error, is_anomaly
+        is_anomaly = prediction > self.value_threshold
+        return prediction, is_anomaly
     
     def save_model(self, filepath):
         """Save model parameters to a file"""

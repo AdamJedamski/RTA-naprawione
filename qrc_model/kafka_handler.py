@@ -4,7 +4,7 @@ import numpy as np
 from collections import deque
 from kafka import KafkaConsumer, KafkaProducer
 from model import QuantumReservoirModel
-from config import DEFAULT_KAFKA_PARAMS, DEFAULT_TRAINING_PARAMS, DEFAULT_QRC_PARAMS
+from config import DEFAULT_KAFKA_PARAMS, DEFAULT_TRAINING_PARAMS, DEFAULT_QRC_PARAMS, DEFAULT_ANOMALY_PARAMS
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -122,26 +122,33 @@ class QRCKafkaHandler:
                 input_seq = np.array(list(self.buffer))
                 
                 # Detect anomalies
-                prediction, error, is_anomaly = self.model.detect_anomalies(input_seq, value)
-                
-                # Prepare output record
+                prediction, is_anomaly = self.model.detect_anomalies(input_seq)
+
+                # Wymuś natywne typy Pythonowe
+                py_prediction = float(prediction)
+                py_is_anomaly = bool(is_anomaly)
+                py_threshold = float(self.model.value_threshold)
+
+                # Przygotuj rekord tylko z natywnymi typami
                 output_record = {
-                    'timestamp': record['timestamp'],
-                    'streaming_time': record['streaming_time'],
-                    'record_id': record['record_id'],
-                    'actual_value': value,
-                    'predicted_value': float(prediction),
-                    'error': float(error),
-                    'is_anomaly': bool(is_anomaly),
-                    'threshold': float(self.model.error_threshold)
+                    'timestamp':        record['timestamp'],
+                    'streaming_time':   record['streaming_time'],
+                    'record_id':        record['record_id'],
+                    'actual_value':     float(value),
+                    'predicted_value':  py_prediction,
+                    'is_anomaly':       py_is_anomaly,
+                    'threshold':        py_threshold
                 }
-                
-                # Send to output topic
+
+                # Wyślij
                 self.producer.send(self.output_topic, value=output_record)
                 
                 # Log anomalies
                 if is_anomaly:
-                    logger.warning(f"Anomaly detected! Record ID: {record['record_id']}, Error: {error:.4f}, Threshold: {self.model.error_threshold:.4f}")
+                    logger.warning(
+                        f"Anomaly! Record ID: {record['record_id']}, "
+                        f"Prediction: {prediction:.4f}, Threshold: {self.model.value_threshold:.4f}"
+                    )
                 
                 # Flush periodically
                 if int(record['record_id']) % 100 == 0:

@@ -5,6 +5,7 @@ from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -139,48 +140,47 @@ class DashDashboard:
             legend=dict(x=0, y=1, orientation='h')
         )
         
-        # Create error figure
+                ## Create “Prediction vs Threshold” figure (zamiast starego wykresu błędu)
         error_fig = go.Figure()
-        
+
         if data['predictions_available']:
-            # Add error
+            # Wykres prognoz
             error_fig.add_trace(go.Scatter(
                 x=timestamps_str,
-                y=data['errors'],
+                y=data['predicted_values'],
                 mode='lines',
-                name='Error',
-                line=dict(color='blue')
+                name='Predicted',
+                line=dict(dash='dash')
             ))
-            
-            # Add threshold
+
+            # Poziom progu (z każdego rekordu Kafka)
             error_fig.add_trace(go.Scatter(
                 x=timestamps_str,
                 y=data['thresholds'],
                 mode='lines',
                 name='Threshold',
-                line=dict(color='red', dash='dash')
+                line=dict(dash='dash')
             ))
-            
-            # Find indices of anomalies
-            anomaly_indices = [i for i, is_anomaly in enumerate(data['anomalies']) if is_anomaly]
-            
+    
+            # Markery tam, gdzie prognoza > próg
+            anomaly_indices = [i for i, a in enumerate(data['anomalies']) if a]
             if anomaly_indices:
                 error_fig.add_trace(go.Scatter(
                     x=[timestamps_str[i] for i in anomaly_indices],
-                    y=[data['errors'][i] for i in anomaly_indices],
+                    y=[data['predicted_values'][i] for i in anomaly_indices],
                     mode='markers',
                     name='Anomalies',
                     marker=dict(color='red', size=10, symbol='x')
                 ))
-        
+
         error_fig.update_layout(
-            title='Prediction Error',
+            title='Prediction vs Threshold',
             xaxis=dict(title='Time'),
-            yaxis=dict(title='Error'),
+            yaxis=dict(title='Value'),
             legend=dict(x=0, y=1, orientation='h')
         )
         
-        # Create anomaly detection figure
+            # Create anomaly detection figure
         anomaly_fig = go.Figure()
         
         if data['predictions_available']:
@@ -211,8 +211,6 @@ class DashDashboard:
                 html.Tr([html.Td('Latest Value:'), html.Td(f"{data['actual_values'][-1]:.4f}")]),
                 html.Tr([html.Td('Latest Prediction:'), 
                          html.Td(f"{data['predicted_values'][-1]:.4f}" if data['predictions_available'] else 'N/A')]),
-                html.Tr([html.Td('Latest Error:'), 
-                         html.Td(f"{data['errors'][-1]:.4f}" if data['predictions_available'] else 'N/A')]),
                 html.Tr([html.Td('Current Threshold:'), 
                          html.Td(f"{data['thresholds'][-1]:.4f}" if data['predictions_available'] else 'N/A')]),
                 html.Tr([html.Td('Anomalies Detected:'), 
