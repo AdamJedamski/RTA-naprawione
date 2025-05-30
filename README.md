@@ -61,7 +61,7 @@ rta-project/
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/RTA-Project.git
+   git clone https://github.com/AdamJedamski/RTA-naprawione.git
    cd RTA-Project
    ```
 

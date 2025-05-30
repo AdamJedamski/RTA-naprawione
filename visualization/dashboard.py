@@ -100,17 +100,21 @@ class DashDashboard:
         
         # Create time series figure
         time_series_fig = go.Figure()
-        
-        # Add actual values
-        time_series_fig.add_trace(go.Scatter(
-            x=timestamps_str,
-            y=data['actual_values'],
-            mode='lines',
-            name='Actual'
-        ))
-        
-        # Add predicted values if available
+
+         # 1) Actual series (bez ostatniego punktu, żeby było widać forecast marker)
+        if len(timestamps_str) > 1:
+            time_series_fig.add_trace(go.Scatter(
+                x=timestamps_str[:-1],
+                y=data['actual_values'][:-1],
+                mode='lines',
+                name='Actual'
+            ))
+        else:
+            # jak jest tylko jeden punkt, nie rysujemy
+            pass
+
         if data['predictions_available']:
+            # 2) Predicted aligned with actual
             time_series_fig.add_trace(go.Scatter(
                 x=timestamps_str,
                 y=data['predicted_values'],
@@ -118,6 +122,7 @@ class DashDashboard:
                 name='Predicted',
                 line=dict(dash='dash')
             ))
+
         
         # Add anomaly points if available
         if data['predictions_available']:
